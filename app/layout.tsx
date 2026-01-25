@@ -5,9 +5,9 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AiChatButton } from "@/components/ai-chat-button"
-import { AuthProvider } from "@/lib/auth-context"
 import { CreditsProvider } from "@/lib/credits-context"
 import { UpgradeModal } from "@/components/upgrade-modal"
+import AuthProvider from "@/components/providers/auth-provider"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
