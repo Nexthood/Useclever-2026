@@ -2,7 +2,7 @@ import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Check, Sparkles, Zap, Building2 } from "lucide-react"
+import { Check, Sparkles, Zap, Building2, Brain, Cpu } from "lucide-react"
 import Link from "next/link"
 import { CheckoutButton } from "@/components/checkout-form"
 
@@ -85,6 +85,12 @@ export default function PricingPage() {
                   </li>
                 </ul>
 
+                <div className="pt-2 border-t border-border/30">
+                  <p className="text-xs text-muted-foreground">
+                    Cloud only • Hybrid AI available on paid plans
+                  </p>
+                </div>
+
                 <Link href="/signup" className="block">
                   <Button
                     variant="outline"
@@ -129,7 +135,7 @@ export default function PricingPage() {
                   <li className="flex items-start gap-2">
                     <Check className="h-4 w-4 text-[#7C3AED] flex-shrink-0 mt-0.5" />
                     <div>
-                      <div className="text-sm font-medium">Advanced AI assistant</div>
+                      <div className="text-sm font-medium">Advanced Clevr AI Analyst</div>
                     </div>
                   </li>
                   <li className="flex items-start gap-2">
@@ -162,7 +168,41 @@ export default function PricingPage() {
                       <div className="text-sm font-medium">API access</div>
                     </div>
                   </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-[#7C3AED] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-medium">Unlimited Executive Report Downloads</div>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-[#7C3AED] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-medium">Export to PDF, PPT, DOCX & XLSX</div>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-[#7C3AED] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-medium">Branded Investor-Ready Reports</div>
+                    </div>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-[#7C3AED] flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-sm font-medium">Access to Download Center</div>
+                    </div>
+                  </li>
                 </ul>
+
+                <div className="pt-2 border-t border-[#7C3AED]/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-4 w-4 text-[#A78BFA]" />
+                    <span className="text-sm font-medium text-[#A78BFA]">Includes Hybrid AI Lite</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Hybrid AI Standard available as add-on
+                  </p>
+                </div>
 
                 <CheckoutButton
                   productId="pro_monthly"
@@ -221,6 +261,16 @@ export default function PricingPage() {
                   </li>
                 </ul>
 
+                <div className="pt-2 border-t border-[#7C3AED]/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-4 w-4 text-[#A78BFA]" />
+                    <span className="text-sm font-medium text-[#A78BFA]">Includes Hybrid AI Standard</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Hybrid AI MEGA / private deployment available on request
+                  </p>
+                </div>
+
                 <a href="mailto:sales@useclevr.com" className="block">
                   <Button
                     variant="outline"
@@ -230,6 +280,38 @@ export default function PricingPage() {
                   </Button>
                 </a>
               </Card>
+            </div>
+
+            {/* Hybrid AI Modes Section */}
+            <div className="mt-16">
+              <h2 className="text-2xl font-bold text-center mb-8">Hybrid AI Modes</h2>
+              <div className="grid md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+                <Card className="p-4 bg-card border border-cyan-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-5 w-5 text-cyan-400" />
+                    <h3 className="font-semibold text-foreground">Lite</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">For normal laptops</p>
+                  <p className="text-xs text-cyan-400 mt-2">~2GB download</p>
+                </Card>
+                <Card className="p-4 bg-card border border-purple-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-5 w-5 text-purple-400" />
+                    <h3 className="font-semibold text-foreground">Standard</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">For stronger devices</p>
+                  <p className="text-xs text-purple-400 mt-2">~5GB download</p>
+                </Card>
+                <Card className="p-4 bg-card border border-gray-500/20 opacity-70">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Cpu className="h-5 w-5 text-gray-400" />
+                    <h3 className="font-semibold text-foreground">MEGA</h3>
+                    <span className="text-xs bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">For high-performance systems</p>
+                  <p className="text-xs text-gray-400 mt-2">~15GB download</p>
+                </Card>
+              </div>
             </div>
 
             <div className="mt-12">

@@ -1,4 +1,7 @@
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/lib/auth"
+import { db } from "@/lib/db"
+import { datasets, datasetRows } from "@/lib/db/schema"
+import { eq, and } from "drizzle-orm"
 import { NextResponse } from "next/server"
 
 export async function GET(
@@ -7,47 +10,47 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
+    const session = await auth()
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Get dataset
-    const { data: dataset, error: datasetError } = await supabase
-      .from("datasets")
-      .select("id, name, created_at")
-      .eq("id", id)
-      .eq("user_id", user.id)
-      .single()
+    const dataset = await db.query.datasets.findFirst({
+      where: and(
+        eq(datasets.id, id),
+        eq(datasets.userId, session.user.id)
+      ),
+      columns: {
+        id: true,
+        name: true,
+        createdAt: true,
+        columns: true,
+        rowCount: true,
+      },
+    })
 
-    if (datasetError) {
+    if (!dataset) {
       return NextResponse.json({ error: "Dataset not found" }, { status: 404 })
     }
 
     // Get first 100 rows for preview
-    const { data: rows, error: rowsError } = await supabase
-      .from("dataset_rows")
-      .select("data")
-      .eq("dataset_id", id)
-      .order("row_index", { ascending: true })
-      .limit(100)
+    const rows = await db.query.datasetRows.findMany({
+      where: eq(datasetRows.datasetId, id),
+      columns: { data: true },
+      orderBy: (rows, { asc }) => [asc(rows.rowIndex)],
+      limit: 100,
+    })
 
-    if (rowsError) {
-      return NextResponse.json({ error: rowsError.message }, { status: 500 })
-    }
-
-    // Derive columns from first row of data
-    const data = rows.map(r => r.data)
-    const columns = data.length > 0 ? Object.keys(data[0] as object) : []
+    const data = rows.map((r) => r.data)
+    const columns = (dataset.columns as string[]) || []
 
     return NextResponse.json({ 
       dataset,
       rows: data,
       columns,
-      totalRows: data.length
+      totalRows: dataset.rowCount,
     })
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -60,23 +63,19 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
+    const session = await auth()
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { error } = await supabase
-      .from("datasets")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user.id)
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    // Delete dataset (rows will be deleted due to cascade)
+    await db.delete(datasets).where(
+      and(
+        eq(datasets.id, id),
+        eq(datasets.userId, session.user.id)
+      )
+    )
 
     return NextResponse.json({ success: true })
   } catch (error) {

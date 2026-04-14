@@ -1,6 +1,6 @@
 import type React from "react"
 import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { FormattingProvider } from "@/lib/formatting-context"
 
 export default function AppLayout({
   children,
@@ -8,9 +8,13 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>{children}</SidebarInset>
-    </SidebarProvider>
+    <FormattingProvider>
+      <div className="min-h-screen bg-background">
+        <AppSidebar />
+        <main className="ml-[240px] min-h-screen">
+          {children}
+        </main>
+      </div>
+    </FormattingProvider>
   )
 }

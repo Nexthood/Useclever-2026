@@ -1,27 +1,28 @@
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/lib/auth"
+import { db } from "@/lib/db"
+import { datasets, datasetRows } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const session = await auth()
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: datasets, error } = await supabase
-      .from("datasets")
-      .select("id, name, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
+    const userDatasets = await db.query.datasets.findMany({
+      where: eq(datasets.userId, session.user.id),
+      columns: {
+        id: true,
+        name: true,
+        createdAt: true,
+      },
+      orderBy: (datasets, { desc }) => [desc(datasets.createdAt)],
+    })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ datasets })
+    return NextResponse.json({ datasets: userDatasets })
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -29,11 +30,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const session = await auth()
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -41,41 +40,40 @@ export async function POST(request: Request) {
     const { name, fileName, fileSize, columns, rows } = body
 
     // Create dataset record
-    const { data: dataset, error: datasetError } = await supabase
-      .from("datasets")
-      .insert({
-        user_id: user.id,
+    const datasetId = `ds_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    await db.insert(datasets).values({
+      id: datasetId,
+      userId: session.user.id,
+      name: name || fileName,
+      fileName: fileName || "",
+      fileSize: fileSize || null,
+      columnCount: columns?.length || 0,
+      columns: columns || [],
+      rowCount: rows?.length || 0,
+    })
+
+    // Insert rows if provided
+    if (rows?.length > 0) {
+      await db.insert(datasetRows).values(
+        rows.map((row: Record<string, unknown>, index: number) => ({
+          id: `row_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+          datasetId,
+          rowIndex: index,
+          data: row,
+        }))
+      )
+    }
+
+    return NextResponse.json({ 
+      dataset: {
+        id: datasetId,
         name: name || fileName,
-      })
-      .select("id, name, created_at")
-      .single()
-
-    if (datasetError) {
-      return NextResponse.json({ error: datasetError.message }, { status: 500 })
-    }
-
-    // Insert rows in batches
-    const batchSize = 100
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize).map((row: Record<string, unknown>, index: number) => ({
-        dataset_id: dataset.id,
-        row_index: i + index,
-        data: row
-      }))
-
-      const { error: rowsError } = await supabase
-        .from("dataset_rows")
-        .insert(batch)
-
-      if (rowsError) {
-        // Rollback: delete the dataset if rows insertion fails
-        await supabase.from("datasets").delete().eq("id", dataset.id)
-        return NextResponse.json({ error: rowsError.message }, { status: 500 })
+        createdAt: new Date(),
       }
-    }
-
-    return NextResponse.json({ dataset })
+    })
   } catch (error) {
+    console.error("Error creating dataset:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

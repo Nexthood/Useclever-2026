@@ -1,16 +1,14 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { AiChatButton } from "@/components/ai-chat-button"
 import { CreditsProvider } from "@/lib/credits-context"
 import { UpgradeModal } from "@/components/upgrade-modal"
 import AuthProvider from "@/components/providers/auth-provider"
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "UseClevr - Turn data into insights",
@@ -47,7 +45,6 @@ export default function RootLayout({
           <AuthProvider>
             <CreditsProvider>
               {children}
-              <AiChatButton />
               <UpgradeModal />
             </CreditsProvider>
           </AuthProvider>

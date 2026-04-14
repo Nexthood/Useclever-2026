@@ -3,10 +3,18 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { FREE_UPLOADS_LIMIT } from "@/lib/products"
 
+// Credit packages for purchase
+export const CREDIT_PACKAGES = [
+  { id: "credits_5", credits: 5, price: 9, name: "5 Reports" },
+  { id: "credits_15", credits: 15, price: 24, name: "15 Reports" },
+  { id: "credits_50", credits: 50, price: 69, name: "50 Reports" },
+]
+
 interface CreditsContextType {
   credits: number
   freeUploadsUsed: number
   isFreeTier: boolean
+  isPro: boolean
   addCredits: (amount: number) => void
   useCredits: (amount: number) => boolean
   useFreeUpload: () => boolean
@@ -20,6 +28,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   const [credits, setCredits] = useState(0)
   const [freeUploadsUsed, setFreeUploadsUsed] = useState(0)
   const [isFreeTier, setIsFreeTier] = useState(true)
+  const [isPro, setIsPro] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   useEffect(() => {
@@ -32,7 +41,10 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         
         if (storedCredits) setCredits(Number.parseInt(storedCredits))
         if (storedUploads) setFreeUploadsUsed(Number.parseInt(storedUploads))
-        if (storedTier) setIsFreeTier(storedTier === "free")
+        if (storedTier) {
+          setIsFreeTier(storedTier === "free")
+          setIsPro(storedTier === "paid" || storedTier === "pro")
+        }
       }
     } catch (e) {
       // localStorage not available
@@ -43,9 +55,10 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
     const newCredits = credits + amount
     setCredits(newCredits)
     setIsFreeTier(false)
+    setIsPro(true)
     try {
       localStorage.setItem("useclevr_credits", newCredits.toString())
-      localStorage.setItem("useclevr_tier", "paid")
+      localStorage.setItem("useclevr_tier", "pro")
     } catch (e) {}
   }
 
@@ -86,6 +99,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         credits,
         freeUploadsUsed,
         isFreeTier,
+        isPro,
         addCredits,
         useCredits,
         useFreeUpload,

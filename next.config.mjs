@@ -6,7 +6,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
- 
+  // Increase response limit for large responses
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
 }
 
 export default nextConfig

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60">
+  <style>
+    .text { font-family: Arial, sans-serif; font-weight: bold; }
+  </style>
+  <rect width="200" height="60" fill="#2563eb" rx="12"/>
+  <text x="100" y="38" class="text" font-size="24" fill="white" text-anchor="middle">USECLEVR</text>
+  <text x="100" y="52" class="text" font-size="12" fill="#93c5fd" text-anchor="middle">2026</text>
+</svg>
