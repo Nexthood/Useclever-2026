@@ -1,5 +1,5 @@
 import { drizzle } from 'drizzle-orm/neon-http'
-import { neon } from '@neondatabase/serverless'
+import { neon, neonConfig } from '@neondatabase/serverless'
 import * as schema from './schema'
 
 const globalForDb = globalThis as unknown as {
@@ -15,6 +15,9 @@ function createDbClient() {
   }
 
   // Use Neon HTTP client for serverless/edge compatibility
+  // Important: enable fetch connection cache for Next.js serverless to prevent intermittent
+  // `TypeError: fetch failed` due to connection reuse/cold starts.
+  neonConfig.fetchConnectionCache = true
   const sql = neon(connectionUrl)
   // Initialize Drizzle with Neon client and attach schema for typed `db.query`
   const db = drizzle(sql, { schema })
