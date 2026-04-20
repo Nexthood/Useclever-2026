@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { generateReport, getReport, listReports, listAllReports, deleteReport } from '@/lib/report-generator';
+import * as fs from 'fs';
 
 export async function POST(request: Request) {
   try {
@@ -80,4 +81,40 @@ export async function GET(request: Request) {
   }
   
   return NextResponse.json({ error: 'datasetId required' }, { status: 400 });
+}
+
+// DELETE /api/reports?id=<reportId>
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'id required' }, { status: 400 })
+    }
+
+    const report = getReport(id)
+    if (!report) {
+      return NextResponse.json({ error: 'Report not found' }, { status: 404 })
+    }
+
+    // Attempt to remove generated PDF file if present
+    try {
+      if (report.pdfPath && fs.existsSync(report.pdfPath)) {
+        fs.unlinkSync(report.pdfPath)
+      }
+    } catch (fileErr) {
+      console.warn('[REPORTS DELETE] Failed to delete PDF file:', fileErr)
+      // Continue; metadata should still be removed
+    }
+
+    const deleted = deleteReport(id)
+    if (!deleted) {
+      return NextResponse.json({ error: 'Failed to delete report' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error('[REPORTS DELETE] Error:', err?.message || err)
+    return NextResponse.json({ error: err?.message || 'Delete failed' }, { status: 500 })
+  }
 }

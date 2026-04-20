@@ -14,6 +14,33 @@ export async function POST(request: Request) {
     const baseUrl = process.env.OLLAMA_BASE_URL?.trim() || DEFAULT_OLLAMA_BASE
     const url = `${baseUrl.replace(/\/$/, '')}${PULL_PATH}`
 
+    // Minimal runtime availability check to avoid opaque 502s
+    const runtimeOk = await (async () => {
+      const controller = new AbortController()
+      const t = setTimeout(() => controller.abort(), 2000)
+      try {
+        const probe = await fetch(`${baseUrl.replace(/\/$/, '')}/api/version`, { method: 'GET', signal: controller.signal })
+        clearTimeout(t)
+        return probe.ok
+      } catch {
+        clearTimeout(t)
+        return false
+      }
+    })()
+
+    if (!runtimeOk) {
+      // Do not attempt model pull; provide structured product-usable response
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'runtime_required',
+          reason: 'runtime_unavailable',
+          status: 'model_pull_blocked'
+        },
+        { status: 428 } // Precondition Required
+      )
+    }
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
 

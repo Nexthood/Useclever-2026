@@ -222,11 +222,11 @@ export function GrokChatPanel({ isOpen = false, onClose, datasetId, datasetName,
       const welcomeMessage: Message = {
         id: "welcome",
         role: "assistant",
-        content: "I'm your AI data analyst. Ask me anything about your dataset.",
+        content: "I'm your AI data analyst. Choose a suggested question to explore your dataset.",
         timestamp: new Date(),
         insight: "Your dataset is ready for analysis",
         explanation: `${datasetName || 'This dataset'} contains ${rowCount || 0} rows and ${columnCount || 0} columns. I can help you discover trends, compare metrics, and get actionable recommendations.`,
-        recommendation: "Try asking one of the questions below or type your own.",
+        recommendation: "Select one of the suggested questions below to begin.",
       }
       setMessages([welcomeMessage])
     }
@@ -535,7 +535,7 @@ export function GrokChatPanel({ isOpen = false, onClose, datasetId, datasetName,
           {messages.length === 1 && messages[0].id === "welcome" && (
             <div className="px-6 pb-32">
               <div className="max-w-[880px] mx-auto">
-                <p className="text-base text-[#8B97A8] mb-4">I'm your AI data analyst. Ask me anything about your dataset.</p>
+                <p className="text-base text-[#8B97A8] mb-4">Choose a suggested question to explore your dataset.</p>
                 <div className="flex flex-wrap gap-3">
                   {welcomeSuggestions.map((suggestion, idx) => (
                     <button
@@ -552,52 +552,7 @@ export function GrokChatPanel({ isOpen = false, onClose, datasetId, datasetName,
             </div>
           )}
 
-          {/* Input Area - Bottom centered */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-background">
-            {/* Attached file preview */}
-            {attachedFile && (
-              <div className="max-w-[880px] mx-auto mb-3 flex items-center gap-2 px-3 py-2 bg-[#141A23] rounded-lg border border-[#2A3442]">
-                <Paperclip className="h-4 w-4 text-cyan-400" />
-                <span className="text-sm text-[#E6EDF3] flex-1 truncate">{attachedFile.name}</span>
-                <button
-                  onClick={() => setAttachedFile(null)}
-                  className="text-[#8B97A8] hover:text-red-400 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            
-            {/* Large rounded input bar - Centered, max-width 880px */}
-            <div className="relative flex items-center gap-3 max-w-[880px] mx-auto">
-              <div className="flex-1 relative">
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask anything about your data..."
-                  className="h-14 rounded-[999px] bg-[#141A23] border border-[#2A3442] text-base text-[#E6EDF3] placeholder:text-[#8B97A8] focus:border-[#22D3EE] focus:ring-1 focus:ring-[#22D3EE]/30 pl-6 pr-6"
-                  disabled={isLoading}
-                />
-              </div>
-              
-              {/* Send button - 44px circle with gradient */}
-              <Button
-                size="icon"
-                onClick={() => handleSend()}
-                disabled={(!inputValue.trim() && !attachedFile) || isLoading}
-                className="h-11 w-11 shrink-0 bg-gradient-to-r from-[#22D3EE] to-[#8B5CF6] hover:from-[#22D3EE]/80 hover:to-[#8B5CF6]/80 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20 transition-all hover:scale-105"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                  </svg>
-                )}
-              </Button>
-            </div>
-          </div>
+          {/* Input Area removed for MVP: free-text disabled. Users should use suggested chips above. */}
         </div>
       </div>
     </>

@@ -30,6 +30,7 @@ import {
   ResponsiveContainer,
   Cell 
 } from "recharts"
+import { BusinessOnePager } from "@/components/business-one-pager"
 
 // ============================================================================
 // Type Definitions
@@ -135,6 +136,36 @@ export function DatasetAnalyzer({
   // ============================================================================
   // VALIDATED METRICS LAYER - Compute metrics from KPIs first, then generate UI
   // ============================================================================
+  // Single source of truth: detect which metric families are actually available
+  const capabilities = React.useMemo(() => {
+    const detected = analysis?.business_analysis?.detectedColumns
+    const kpis = analysis?.business_analysis?.kpis
+    const revenueAvailable = !!detected?.revenueColumn && kpis?.totalRevenue !== null
+    // Validate numeric usability for cost column from raw data
+    const hasValidCostNumeric = (() => {
+      const col = detected?.costColumn
+      if (!col || !data || data.length === 0) return false
+      let valid = 0
+      for (const row of data.slice(0, 50)) {
+        const v = (row as Record<string, unknown>)[col as string]
+        if (v === null || v === undefined || v === '') continue
+        const n = Number(v)
+        if (!Number.isNaN(n) && Number.isFinite(n)) valid++
+        if (valid >= 5) return true
+      }
+      return false
+    })()
+    // Tightened: require detected cost column AND validated numeric data OR verified profit reliability
+    const costAvailable = !!detected?.costColumn && (hasValidCostNumeric || kpis?.profitReliability === 'verified')
+    const profitAvailable = revenueAvailable && (costAvailable || (kpis?.profitReliability === 'derived' && kpis?.profitMargin !== null && kpis?.totalProfit !== null))
+    // Tightened: require date column AND at least one validated numeric time-series source (revenue or cost numeric)
+    const hasValidRevenueSeries = revenueAvailable
+    const hasValidCostSeries = hasValidCostNumeric
+    const trendAvailable = !!detected?.dateColumn && (hasValidRevenueSeries || hasValidCostSeries)
+    const regionRankingAvailable = !!detected?.regionColumn && revenueAvailable
+    const productRankingAvailable = !!detected?.productColumn && revenueAvailable
+    return { revenueAvailable, costAvailable, profitAvailable, trendAvailable, regionRankingAvailable, productRankingAvailable }
+  }, [analysis, data])
   
   // Generate validated insights from computed KPIs
   const getValidatedInsights = React.useCallback(() => {
@@ -149,7 +180,7 @@ export function DatasetAnalyzer({
     }[] = []
     
     // Revenue insight
-    if (kpis.totalRevenue !== null) {
+    if (capabilities.revenueAvailable && kpis.totalRevenue !== null) {
       insights.push({
         message: `Total revenue is ${formatCurrencyForKPI(kpis.totalRevenue)}`,
         type: 'revenue',
@@ -159,7 +190,7 @@ export function DatasetAnalyzer({
     }
     
     // Profit insight
-    if (kpis.totalProfit !== null) {
+    if (capabilities.profitAvailable && kpis.totalProfit !== null) {
       const profitLabel = kpis.totalProfit >= 0 ? 'profit' : 'loss'
       insights.push({
         message: `Total ${profitLabel}: ${formatCurrencyForKPI(Math.abs(kpis.totalProfit))}`,
@@ -170,7 +201,7 @@ export function DatasetAnalyzer({
     }
     
     // Profit margin insight
-    if (kpis.profitMargin !== null) {
+    if (capabilities.profitAvailable && kpis.profitMargin !== null) {
       insights.push({
         message: `Profit margin: ${formatPercentSimple(kpis.profitMargin)}`,
         type: 'margin',
@@ -180,7 +211,7 @@ export function DatasetAnalyzer({
     }
     
     // Top region insight - only if we have region data
-    if (kpis.topRegions && kpis.topRegions.length > 0) {
+    if (capabilities.regionRankingAvailable && kpis.topRegions && kpis.topRegions.length > 0) {
       const topRegion = kpis.topRegions[0]
       if (topRegion) {
         insights.push({
@@ -193,7 +224,7 @@ export function DatasetAnalyzer({
     }
     
     // Trend insight - only if valid
-    if (kpis.growthValid && kpis.growthPercentage !== null) {
+    if (capabilities.trendAvailable && kpis.growthValid && kpis.growthPercentage !== null) {
       const trend = kpis.growthPercentage >= 0 ? 'growth' : 'decline'
       insights.push({
         message: `Revenue ${trend}: ${formatPercentage(kpis.growthPercentage)} period-over-period`,
@@ -201,7 +232,7 @@ export function DatasetAnalyzer({
         evidence: `Change: ${formatPercentage(kpis.growthPercentage)}`,
         reliability: 'verified'
       })
-    } else if (!kpis.growthValid) {
+    } else if (!capabilities.trendAvailable || !kpis.growthValid) {
       insights.push({
         message: 'Trend analysis unavailable due to missing or invalid time data',
         type: 'trend',
@@ -211,7 +242,7 @@ export function DatasetAnalyzer({
     }
     
     // Average transaction value
-    if (kpis.avgRevenue !== null) {
+    if (capabilities.revenueAvailable && kpis.avgRevenue !== null) {
       insights.push({
         message: `Average transaction value: ${formatCurrencyForKPI(kpis.avgRevenue)}`,
         type: 'average',
@@ -221,7 +252,7 @@ export function DatasetAnalyzer({
     }
     
     return insights
-  }, [analysis])
+  }, [analysis, capabilities])
   
   // Generate validated recommendations from computed KPIs with strict triggers
   const getValidatedRecommendations = React.useCallback(() => {
@@ -769,11 +800,11 @@ export function DatasetAnalyzer({
             </div>
           )}
 
-          {/* KPI Cards - Premium Executive Grid */}
+          {/* KPI Cards - Premium Executive Grid (gated by capabilities) */}
           {analysis?.business_analysis?.kpis && (
             <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
               {/* Total Revenue - Dominant Card */}
-              {analysis?.business_analysis?.kpis && (
+              {capabilities.revenueAvailable && analysis?.business_analysis?.kpis && (
                 <div 
                   className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-200 cursor-pointer group"
                   onClick={() => {
@@ -802,13 +833,14 @@ export function DatasetAnalyzer({
                 </div>
               )}
               
-              {/* Total Profit */}
-              <div 
-                  className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-200 cursor-pointer group"
-                  onClick={() => {
-                    const kpis = analysis!.business_analysis!.kpis;
-                    const reliability = kpis.profitReliability || 'unavailable';
-                    const reliabilityLabel = reliability === 'verified' ? 'Verified' : reliability === 'derived' ? 'Derived' : 'Unavailable';
+               {/* Total Profit */}
+               {capabilities.profitAvailable && (
+               <div 
+                   className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-200 cursor-pointer group"
+                   onClick={() => {
+                     const kpis = analysis!.business_analysis!.kpis;
+                     const reliability = kpis.profitReliability || 'unavailable';
+                     const reliabilityLabel = reliability === 'verified' ? 'Verified' : reliability === 'derived' ? 'Derived' : 'Unavailable';
                     const explanation = reliability === 'derived' 
                       ? 'Profit is derived from revenue and margin (no cost data available in dataset).'
                       : reliability === 'verified'
@@ -851,11 +883,12 @@ export function DatasetAnalyzer({
                     )}
                   </div>
                 </div>
+               )}
                <div 
-                 className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-200 cursor-pointer group"
-                 onClick={() => {
-                   if (analysis?.business_analysis?.kpis) {
-                     const kpis = analysis.business_analysis.kpis;
+                  className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-200 cursor-pointer group"
+                  onClick={() => {
+                     if (analysis?.business_analysis?.kpis) {
+                       const kpis = analysis.business_analysis.kpis;
                      setDrilldownItem({
                        type: 'kpi',
                        title: 'Profit Margin',
@@ -873,19 +906,20 @@ export function DatasetAnalyzer({
                >
                  <span className="text-xs text-neutral-400 uppercase tracking-wider font-medium text-center group-hover:text-neutral-300 transition-colors">Margin</span>
                  <div className="text-2xl font-bold text-blue-400 text-center leading-tight">
-                   {analysis.business_analysis.kpis.profitMargin !== null
+                   {capabilities.profitAvailable && analysis.business_analysis.kpis.profitMargin !== null
                      ? formatPercentSimple(analysis.business_analysis.kpis.profitMargin)
                      : <span className="text-neutral-500">No data</span>}
                  </div>
                </div>
-              
-              {/* Top Region */}
+               
+               {/* Top Region */}
+               {capabilities.regionRankingAvailable && (
                <div 
-                 className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-200 cursor-pointer group"
-                 onClick={() => {
-                   if (analysis?.business_analysis?.kpis) {
-                     const kpis = analysis.business_analysis.kpis;
-                     setDrilldownItem({
+                  className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-200 cursor-pointer group"
+                  onClick={() => {
+                    if (analysis?.business_analysis?.kpis) {
+                      const kpis = analysis.business_analysis.kpis;
+                      setDrilldownItem({
                        type: 'kpi',
                        title: 'Top Region',
                        value: kpis.topRegions[0]?.name 
@@ -911,15 +945,17 @@ export function DatasetAnalyzer({
                        : analysis.business_analysis.kpis.topRegions[0].name
                      : <span className="text-neutral-500">No data</span>}
                  </div>
-               </div>
-              
-              {/* Top Product */}
+                </div>
+               )}
+               
+               {/* Top Product */}
+               {capabilities.productRankingAvailable && (
                <div 
-                 className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/5 transition-all duration-200 cursor-pointer group"
-                 onClick={() => {
-                   if (analysis?.business_analysis?.kpis) {
-                     const kpis = analysis.business_analysis.kpis;
-                     setDrilldownItem({
+                  className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/5 transition-all duration-200 cursor-pointer group"
+                  onClick={() => {
+                    if (analysis?.business_analysis?.kpis) {
+                      const kpis = analysis.business_analysis.kpis;
+                      setDrilldownItem({
                        type: 'kpi',
                        title: 'Top Product',
                        value: kpis.topProducts[0]?.name 
@@ -945,15 +981,16 @@ export function DatasetAnalyzer({
                        : analysis.business_analysis.kpis.topProducts[0].name
                      : <span className="text-neutral-500">No data</span>}
                  </div>
-               </div>
-              
-              {/* Growth */}
-               {analysis.business_analysis.kpis.growthValid && (
-                 <div 
-                   className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/5 transition-all duration-200 cursor-pointer group"
-                   onClick={() => {
-                     if (analysis?.business_analysis?.kpis) {
-                       const kpis = analysis.business_analysis.kpis;
+                </div>
+               )}
+               
+               {/* Growth */}
+               {capabilities.trendAvailable && analysis.business_analysis.kpis.growthValid && (
+                   <div 
+                     className="bg-neutral-900 rounded-xl p-5 flex flex-col justify-between min-h-[140px] border border-neutral-800 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/5 transition-all duration-200 cursor-pointer group"
+                     onClick={() => {
+                       if (analysis?.business_analysis?.kpis) {
+                         const kpis = analysis.business_analysis.kpis;
                        setDrilldownItem({
                          type: 'kpi',
                          title: 'Revenue Growth',
@@ -982,13 +1019,49 @@ export function DatasetAnalyzer({
             </div>
           )}
 
+          {/* Executive Financial Summary (grounded, validated-only) */}
+          {(() => {
+            const k = analysis?.business_analysis?.kpis
+            if (!k) return false
+            const hasAny = (capabilities.revenueAvailable || capabilities.profitAvailable || capabilities.costAvailable || (capabilities.trendAvailable && k.growthValid))
+            return hasAny
+          })() && (
+            <Card className="bg-neutral-900 border-neutral-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white text-base">Executive Financial Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 text-sm text-neutral-300 space-y-2">
+                {capabilities.revenueAvailable && typeof analysis!.business_analysis!.kpis!.totalRevenue === 'number' && (
+                  <p>Revenue Overview: Total revenue {formatCurrencyForKPI(analysis!.business_analysis!.kpis!.totalRevenue)}{analysis!.business_analysis!.kpis!.avgRevenue ? `; average transaction ${formatCurrencyForKPI(analysis!.business_analysis!.kpis!.avgRevenue)}` : ''}.</p>
+                )}
+                {capabilities.costAvailable && typeof analysis!.business_analysis!.kpis!.totalCost === 'number' && (
+                  <p>Cost / Expense Overview: Total expenses {formatCurrencyForKPI(analysis!.business_analysis!.kpis!.totalCost)}.</p>
+                )}
+                {capabilities.profitAvailable && typeof analysis!.business_analysis!.kpis!.totalProfit === 'number' && (
+                  <p>Profitability: Net {analysis!.business_analysis!.kpis!.totalProfit >= 0 ? 'profit' : 'loss'} {formatCurrencyForKPI(Math.abs(analysis!.business_analysis!.kpis!.totalProfit))}{typeof analysis!.business_analysis!.kpis!.profitMargin === 'number' ? `; margin ${formatPercentSimple(analysis!.business_analysis!.kpis!.profitMargin)}` : ''}.</p>
+                )}
+                {capabilities.trendAvailable && analysis!.business_analysis!.kpis!.growthValid && typeof analysis!.business_analysis!.kpis!.growthPercentage === 'number' && (
+                  <p>Growth / Trend: {analysis!.business_analysis!.kpis!.growthPercentage >= 0 ? 'Growth' : 'Decline'} of {formatPercentage(analysis!.business_analysis!.kpis!.growthPercentage)} over the measured period.</p>
+                )}
+                {!capabilities.revenueAvailable && !capabilities.costAvailable && !capabilities.profitAvailable && (
+                  <p>Financial metrics are limited in this dataset. Narrative is restricted to validated figures only.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Section Divider */}
           {analysis?.business_analysis?.kpis && (
             <div className="border-t border-neutral-800 my-6" />
           )}
 
-          {/* AI Executive Summary */}
-          {analysis?.ai_summary && (
+          {/* AI Executive Summary (gated by capabilities and available metrics) */}
+          {(() => {
+            if (!analysis?.ai_summary) return false
+            const k = analysis?.business_analysis?.kpis
+            const anyMetric = capabilities.revenueAvailable || capabilities.profitAvailable || (capabilities.trendAvailable && !!k?.growthPercentage && !!k?.growthValid) || (capabilities.productRankingAvailable && (k?.topProducts?.length || 0) > 0) || (capabilities.regionRankingAvailable && (k?.topRegions?.length || 0) > 0)
+            return anyMetric
+          })() && (
             <Card className="bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 border border-neutral-700 shadow-xl">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-white">
@@ -1015,7 +1088,7 @@ export function DatasetAnalyzer({
           {/* Key Drivers */}
           {analysis?.business_analysis?.kpis && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {analysis.business_analysis.kpis.topProducts.length > 0 && (
+              {capabilities.productRankingAvailable && analysis.business_analysis.kpis.topProducts.length > 0 && (
                 <Card className="bg-neutral-900 border-neutral-800">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-white text-base">Top Products</CardTitle>
@@ -1050,7 +1123,7 @@ export function DatasetAnalyzer({
                 </Card>
               )}
               
-              {analysis.business_analysis.kpis.topRegions.length > 0 && (
+              {capabilities.regionRankingAvailable && analysis.business_analysis.kpis.topRegions.length > 0 && (
                 <Card className="bg-neutral-900 border-neutral-800">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-white text-base">Revenue by Region/Country</CardTitle>
@@ -1290,9 +1363,9 @@ export function DatasetAnalyzer({
             </div>
           )}
           
-          {analysis?.business_analysis?.breakdowns && 
-           typeof analysis.business_analysis.breakdowns === 'object' && 
-           Object.keys(analysis.business_analysis.breakdowns).length > 0 && (
+           {capabilities.revenueAvailable && analysis?.business_analysis?.breakdowns && 
+            typeof analysis.business_analysis.breakdowns === 'object' && 
+            Object.keys(analysis.business_analysis.breakdowns).length > 0 && (
             <div className="space-y-8">
               {/* PRIMARY: Use breakdowns from analysis (same as Overview) */}
               {(() => {

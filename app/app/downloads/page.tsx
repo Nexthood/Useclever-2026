@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Download, FileText, Image, File, Presentation, FileSpreadsheet, FileInput, Search, Filter, AlertCircle, CheckCircle, Loader2, RefreshCw } from "lucide-react"
+import { Download, FileText, Image, File, Presentation, FileSpreadsheet, FileInput, Search, AlertCircle, CheckCircle, Loader2, RefreshCw, Trash2 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { MegaButton } from "@/components/mega-button"
 import { UpgradeModal } from "@/components/upgrade-modal"
@@ -169,6 +169,24 @@ export default function DownloadsPage() {
     }
   }
 
+  // Handle delete button click
+  const handleDelete = async (item: DownloadItem) => {
+    try {
+      const confirmed = window.confirm(`Remove "${item.name}" from Downloads?`)
+      if (!confirmed) return
+      const res = await fetch(`/api/reports?id=${encodeURIComponent(item.id)}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to delete report')
+      }
+      // Remove from list locally
+      setDownloads(prev => prev.filter(d => d.id !== item.id))
+    } catch (err) {
+      console.error('Delete error:', err)
+      setError(err instanceof Error ? err.message : 'Delete failed')
+    }
+  }
+
   // Determine status display
   const getStatusDisplay = (status: DownloadItem["status"]) => {
     switch (status) {
@@ -297,15 +315,6 @@ export default function DownloadsPage() {
                     className="pl-9 h-9 w-56"
                   />
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-border"
-                  onClick={() => setFilterStatus((prev) => (prev === 'all' ? 'ready' : 'all'))}
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                </Button>
               </div>
             </div>
 
@@ -379,6 +388,15 @@ export default function DownloadsPage() {
                             <Download className="h-4 w-4 mr-2" />
                           )}
                           {isDownloading ? "Downloading..." : "Download"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-red-900/40 text-red-400 hover:bg-red-900/10"
+                          onClick={() => handleDelete(file)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
                         </Button>
                       </div>
                     </div>

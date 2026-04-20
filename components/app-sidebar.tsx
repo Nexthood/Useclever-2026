@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Database, FileText, Settings, LogOut, Home, Sparkles, User, HelpCircle, CreditCard, Download, Gift } from "lucide-react"
+import { LayoutDashboard, Database, FileText, Settings, LogOut, Home, Sparkles, User, HelpCircle, CreditCard, Download, Gift, FileText as DocIcon } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { UsageMonitor } from "@/components/usage-monitor"

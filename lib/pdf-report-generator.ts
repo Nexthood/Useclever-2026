@@ -136,7 +136,7 @@ export async function generatePdfReport(report: Report): Promise<string> {
   // ===== HEADER SECTION =====
   // Full-width dark header
   doc.setFillColor(...colors.primary);
-  doc.rect(0, 0, pageWidth, 45, 'F');
+  doc.rect(0, 0, pageWidth, 50, 'F');
   
   // Brand name
   doc.setFontSize(10);
@@ -144,30 +144,33 @@ export async function generatePdfReport(report: Report): Promise<string> {
   doc.text('UseClevr', margin, 10);
   
   // Report title
-  doc.setFontSize(20);
+  doc.setFontSize(22);
   doc.setTextColor(255, 255, 255);
   doc.text('Executive Analysis Report', margin, 22);
   
   // Dataset subtitle and report metadata
+  // IMPORTANT: jsPDF setTextColor does not take RGBA; using 4 params
+  // switches to CMYK and caused black text. Use explicit RGB only.
   doc.setFontSize(10);
-  doc.setTextColor(255, 255, 255, 0.85);
+  doc.setTextColor(255, 255, 255);
   const subtitle = report.datasetName.length > 45 
     ? report.datasetName.substring(0, 42) + '...' 
     : report.datasetName;
-  doc.text(subtitle, margin, 32);
+  doc.text(subtitle, margin, 33);
   
-  // Report metadata row
+  // Report metadata row (explicit lilac/purple accent on dark header)
   doc.setFontSize(8);
-  doc.setTextColor(255, 255, 255, 0.7);
+  // Tailwind purple-300 equivalent: rgb(196, 181, 253)
+  doc.setTextColor(196, 181, 253);
   const metaRow = `Generated: ${report.localTime} | Rows: ${report.rowCount.toLocaleString()} | Type: Financial Performance`;
-  doc.text(metaRow, margin, 40);
+  doc.text(metaRow, margin, 43);
   
   // Header border accent line
   doc.setDrawColor(...colors.accent);
   doc.setLineWidth(1);
-  doc.line(0, 45, pageWidth, 45);
+  doc.line(0, 50, pageWidth, 50);
   
-  y = 55;
+  y = 60;
   
   // ===== EXECUTIVE SUMMARY =====
   // More substantial summary with improved typography
@@ -175,10 +178,10 @@ export async function generatePdfReport(report: Report): Promise<string> {
     addPage();
   }
   
-  doc.setFontSize(13); // Increased from 12 for section title
+  doc.setFontSize(14); // Stronger section title for hierarchy
   doc.setTextColor(...colors.primary);
   doc.text('Executive Summary', margin, y);
-  addSpacing(7); // Increased spacing
+  addSpacing(9); // More room under title
   
   // Build a richer summary from available data
   let execSummary = '';
@@ -207,12 +210,12 @@ export async function generatePdfReport(report: Report): Promise<string> {
   }
   
   // Display more summary text (up to 8 lines = ~250 words equivalent)
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setTextColor(...colors.muted);
   const summaryLines = wrapText(execSummary, contentWidth);
   const displaySummary = summaryLines.slice(0, 8);
   doc.text(displaySummary, margin, y);
-  addSpacing(displaySummary.length * 4.5 + 8);
+  addSpacing(displaySummary.length * 5 + 10);
   
   // ===== KEY METRICS SECTION =====
   if (report.kpis && report.kpis.length > 0) {
@@ -222,14 +225,14 @@ export async function generatePdfReport(report: Report): Promise<string> {
     }
     
     // Section title - improved typography
-    doc.setFontSize(13); // Increased from 12 for section headers
+    doc.setFontSize(14); // Stronger section headers
     doc.setTextColor(...colors.primary);
     doc.text('Key Performance Metrics', margin, y);
-    addSpacing(8); // Increased spacing for better hierarchy
+    addSpacing(10); // More air before cards
     
     const displayKpis = report.kpis.slice(0, 4);
     const kpiWidth = contentWidth / displayKpis.length;
-    const kpiHeight = 35; // Increased from 32 for better spacing
+    const kpiHeight = 40; // Slightly larger cards
     
     // KPI cards in a row
     for (let i = 0; i < displayKpis.length; i++) {
@@ -243,15 +246,15 @@ export async function generatePdfReport(report: Report): Promise<string> {
       
       // Card background
       doc.setFillColor(...colors.cardBg);
-      doc.roundedRect(x, y, kpiWidth - 3, kpiHeight, 2, 2, 'F');
+      doc.roundedRect(x, y, kpiWidth - 2, kpiHeight, 2.5, 2.5, 'F');
       
       // Label - improved typography
-      doc.setFontSize(8); // Increased from 7
+      doc.setFontSize(9); // Slightly larger label
       doc.setTextColor(...colors.muted);
-      doc.text(kpi.title.toUpperCase(), x + 4, y + 7);
+      doc.text(kpi.title.toUpperCase(), x + 6, y + 9);
       
       // Value - use professional formatting with larger font
-      doc.setFontSize(14); // Increased from 12 for better hierarchy
+      doc.setFontSize(16); // Larger value for emphasis
       doc.setTextColor(...colors.primary);
       
       // Format the value professionally
@@ -266,10 +269,10 @@ export async function generatePdfReport(report: Report): Promise<string> {
         displayValue = kpi.value;
       }
       
-      doc.text(displayValue, x + 4, y + 18);
+      doc.text(displayValue, x + 6, y + 22);
     }
     
-    addSpacing(kpiHeight + 12); // Increased spacing after KPI section
+    addSpacing(kpiHeight + 14); // More space after KPI section
   }
   
   // ===== DETAILED ANALYSIS SECTIONS =====
@@ -286,10 +289,10 @@ export async function generatePdfReport(report: Report): Promise<string> {
       }
       
       // Chart title - improved typography for section hierarchy
-      doc.setFontSize(12); // Increased from 11 for better hierarchy
+      doc.setFontSize(13); // Slightly stronger chart section title
       doc.setTextColor(...colors.primary);
       doc.text(chart.title, margin, y);
-      addSpacing(6); // Increased from 5
+      addSpacing(9); // Slightly more spacing before description
       
       // Generate chart interpretation
       const chartData = chart.data.slice(0, 5); // Top 5 for analysis
@@ -298,7 +301,7 @@ export async function generatePdfReport(report: Report): Promise<string> {
       const topPercent = totalValue > 0 ? ((Math.abs(topItem.value) / totalValue) * 100).toFixed(1) : '0';
       
       // Chart interpretation/commentary - improved typography
-      doc.setFontSize(9); // Increased from 8 for better readability
+      doc.setFontSize(10); // Better readability
       doc.setTextColor(...colors.muted);
       
       let interpretation = '';
@@ -327,85 +330,74 @@ export async function generatePdfReport(report: Report): Promise<string> {
       
       const interpretationLines = wrapText(interpretation, contentWidth);
       doc.text(interpretationLines, margin, y);
-      addSpacing(interpretationLines.length * 4 + 3);
+      addSpacing(interpretationLines.length * 5 + 10); // More space before chart visual
       
-      // Chart visual - horizontal bars with improved layout
-      const chartHeight = 45;
+      // Chart visual - horizontal bars with hardened layout
       const maxValue = Math.max(...chart.data.map(d => Math.abs(d.value)), 1);
       const chartDataDisplay = chart.data.slice(0, 5);
+      const rows = chartDataDisplay.length;
       
-      // Chart background
+      // Chart background with computed height
+      const barHeight = 8;      // slightly taller
+      const barGap = 6;         // slightly larger row gap
+      const topPad = 8;         // padding inside chart box
+      const bottomPad = 8;
+      const chartHeight = topPad + rows * (barHeight + barGap) - barGap + bottomPad;
+
       doc.setFillColor(...colors.lightBg);
       doc.roundedRect(margin, y, contentWidth, chartHeight, 2, 2, 'F');
       
-      // Draw bars - improved sizing and spacing
-      const barHeight = 6; // Larger bars for better label fit
-      const barGap = 4;    // More spacing between bars
-      const labelWidth = 40; // Increased from 30 - room for longer category names
-      const valueWidth = 30; // Increased from 25 - more room for formatted values
-      const barAreaWidth = contentWidth - labelWidth - valueWidth - 15;
-      const labelX = margin + 3;
-      const barStartX = margin + labelWidth + 2;
+      // Stable three-column layout: label | bar | value
+      const labelWidth = 52;   // left label column
+      const valueWidth = 40;   // right value column
+      const gutter = 14;       // middle padding between bar and value
+      const barAreaWidth = contentWidth - labelWidth - valueWidth - gutter;
+      const labelX = margin + 5;
+      const barStartX = margin + labelWidth + 5;
+      const valueRightX = margin + labelWidth + barAreaWidth + gutter + valueWidth; // right edge of value column
       
       for (let i = 0; i < chartDataDisplay.length; i++) {
         const item = chartDataDisplay[i];
         const barWidth = (Math.abs(item.value) / maxValue) * barAreaWidth;
-        const yBar = y + 6 + (i * (barHeight + barGap));
+        const yBar = y + topPad + (i * (barHeight + barGap));
         
         // Bar color - use accent for top, gray for others
         const barColor = i === 0 ? colors.accent : [156, 163, 175];
         doc.setFillColor(barColor[0], barColor[1], barColor[2]);
         doc.roundedRect(barStartX, yBar, barWidth, barHeight, 1, 1, 'F');
         
-        // Category label - improved font size and positioning
-        doc.setFontSize(8); // Increased from 6 for readability
+        // Category label - left column, truncated
+        doc.setFontSize(9);
         doc.setTextColor(...colors.muted);
-        // Truncate at 14 chars (was 10) - cleaner with more room
-        const label = item.name.length > 14 ? item.name.substring(0, 12) + '..' : item.name;
-        doc.text(label, labelX, yBar + 4.2);
+        const label = item.name.length > 18 ? item.name.substring(0, 16) + '..' : item.name;
+        doc.text(label, labelX, yBar + (barHeight / 2) + 2.6);
         
-        // Value label - improved logic for inside/outside placement
-        doc.setFontSize(8); // Increased from 6 for readability
+        // Value label - dedicated right column, never overlaps bar
+        doc.setFontSize(9);
         const valStr = formatCompactNumber(item.value);
-        
-        // Calculate position based on bar width
-        // Minimum bar width needed for inside placement: 25mm
-        const minBarWidthForInside = 25;
-        const insidePadding = 3;
-        const outsidePadding = 2;
-        
-        if (barWidth >= minBarWidthForInside) {
-          // Place value INSIDE the bar with contrasting color
-          doc.setTextColor(255, 255, 255);
-          // Position: left edge + padding, vertically centered
-          doc.text(valStr, barStartX + insidePadding, yBar + 4.2);
-        } else {
-          // Place value OUTSIDE the bar (right side)
-          doc.setTextColor(...colors.primary);
-          // Position: bar end + padding
-          doc.text(valStr, barStartX + barWidth + outsidePadding, yBar + 4.2);
-        }
+        doc.setTextColor(...colors.primary);
+        doc.text(valStr, valueRightX, yBar + (barHeight / 2) + 2.6, { align: 'right' });
       }
       
-      addSpacing(chartHeight + 10);
+      addSpacing(chartHeight + 14);
     }
   }
   
   // ===== KEY INSIGHTS SECTION =====
   if (report.aiInsights && report.aiInsights.length > 0) {
-    if (needNewPage(30)) {
+    if (needNewPage(34)) {
       addPage();
     }
     
     // Title - improved typography for hierarchy
-    doc.setFontSize(12); // Increased from 11
+    doc.setFontSize(13); // Stronger heading
     doc.setTextColor(...colors.primary);
     doc.text('Key Business Insights', margin, y);
-    addSpacing(7); // Increased from 6
+    addSpacing(9); // More space under heading
     
     // Display more insights with actual business context
     const insights = report.aiInsights.slice(0, 4); // Show up to 4
-    doc.setFontSize(9); // Increased from 8 for readability
+    doc.setFontSize(10); // Better readability
     
     for (let i = 0; i < insights.length; i++) {
       const insight = insights[i];
@@ -415,31 +407,31 @@ export async function generatePdfReport(report: Report): Promise<string> {
       const lines = wrapText(`• ${enhancedInsight}`, contentWidth - 5);
       
       // Check if fits
-      if (needNewPage(lines.length * 4 + 4)) {
+      if (needNewPage(lines.length * 5 + 6)) {
         addPage();
       }
       
       doc.setTextColor(...colors.muted);
       doc.text(lines, margin + 3, y);
-      addSpacing(lines.length * 4 + 3);
-    }
+      addSpacing(lines.length * 5 + 5);
+  }
   }
   
   // ===== RECOMMENDED ACTIONS SECTION =====
   if (report.findings && report.findings.length > 0) {
-    if (needNewPage(25)) {
+    if (needNewPage(30)) {
       addPage();
     }
     
     // Title - improved typography
-    doc.setFontSize(12); // Increased from 11
+    doc.setFontSize(13); // Stronger heading
     doc.setTextColor(...colors.primary);
     doc.text('Recommended Actions', margin, y);
-    addSpacing(7); // Increased from 6
+    addSpacing(9); // More space under heading
     
     // More actionable, practical recommendations
     const actions = report.findings.slice(0, 3); // Show up to 3
-    doc.setFontSize(9); // Increased from 8
+    doc.setFontSize(10); // Better readability
     
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i];
@@ -448,36 +440,36 @@ export async function generatePdfReport(report: Report): Promise<string> {
       
       const lines = wrapText(`${i + 1}. ${enhancedAction}`, contentWidth);
       
-      if (needNewPage(lines.length * 4 + 3)) {
+      if (needNewPage(lines.length * 5 + 5)) {
         addPage();
       }
       
       doc.setTextColor(...colors.success);
       doc.text(lines, margin, y);
-      addSpacing(lines.length * 4 + 4);
-    }
+      addSpacing(lines.length * 5 + 6);
+  }
   }
   
   // ===== PERFORMANCE NOTES =====
   // Add a notes section about data quality if relevant
-  if (needNewPage(20)) {
+  if (needNewPage(26)) {
     addPage();
   }
   
   // Analysis Notes - improved typography
-  doc.setFontSize(11); // Increased from 10
+  doc.setFontSize(12); // Stronger heading
   doc.setTextColor(...colors.primary);
   doc.text('Analysis Notes', margin, y);
-  addSpacing(6); // Increased from 5
+  addSpacing(8); // More space under heading
   
-  doc.setFontSize(8); // Increased from 7 for readability
+  doc.setFontSize(9); // Better readability
   doc.setTextColor(...colors.muted);
   const notes = `This report was generated automatically based on the uploaded dataset. ` +
     `Data quality and insights depend on the completeness and accuracy of the source data. ` +
     `For strategic decisions, verify key figures with primary data sources.`;
   const notesLines = wrapText(notes, contentWidth);
   doc.text(notesLines, margin, y);
-  addSpacing(notesLines.length * 3.5 + 8);
+  addSpacing(notesLines.length * 4.2 + 10);
   
   // ===== FOOTER =====
   // Always put footer at bottom of last page
@@ -489,7 +481,7 @@ export async function generatePdfReport(report: Report): Promise<string> {
   doc.line(margin, y - 3, pageWidth - margin, y - 3);
   
   // Footer text - improved typography
-  doc.setFontSize(8); // Increased from 7 for readability
+  doc.setFontSize(9); // Better footer readability
   doc.setTextColor(...colors.muted);
   
   const footerLeft = `${report.localTime} | ${report.rowCount.toLocaleString()} rows analyzed`;

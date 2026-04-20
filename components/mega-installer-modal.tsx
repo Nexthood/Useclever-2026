@@ -17,15 +17,16 @@ interface DownloadProgress {
 interface MegaInstallerModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  preselectTier?: 'lite' | 'standard'
 }
 
-export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalProps) {
+export function MegaInstallerModal({ open, onOpenChange, preselectTier }: MegaInstallerModalProps) {
   const [state, setState] = useState<DownloadState>('idle')
   const [selectedTier, setSelectedTier] = useState<string | null>(null)
   const [progress, setProgress] = useState<DownloadProgress>({ downloaded: 0, total: 0, speed: 0, eta: 0 })
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState<number>(0) // 0: runtime, 1: model, 2: service
-  type ModelStatus = 'unavailable' | 'missing_model' | 'downloading' | 'ready' | 'verifying' | 'verified' | 'error'
+  type ModelStatus = 'unavailable' | 'installing_runtime' | 'missing_model' | 'downloading' | 'ready' | 'verifying' | 'verified' | 'error'
   const [tierStatus, setTierStatus] = useState<Record<'lite' | 'standard', ModelStatus | null>>({ lite: null, standard: null })
   const [pullError, setPullError] = useState<string | null>(null)
   const [verifyError, setVerifyError] = useState<string | null>(null)
@@ -63,6 +64,8 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
   const lastUpdateRef = useRef<number>(0)
   const animationFrameRef = useRef<number | null>(null)
   const isPausedRef = useRef<boolean>(false)
+  const [copiedTier, setCopiedTier] = useState<null | 'lite' | 'standard'>(null)
+  const [hybridLiteEnabled, setHybridLiteEnabled] = useState<boolean>(false)
 
   // Clean up on unmount
   useEffect(() => {
@@ -87,6 +90,14 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
       downloadedBytesRef.current = 0
     }
   }, [open])
+
+  // Minimal guidance: when opened with preselectTier, highlight Lite without auto actions
+  useEffect(() => {
+    if (!open) return
+    if (preselectTier && (preselectTier === 'lite' || preselectTier === 'standard')) {
+      setSelectedTier(preselectTier)
+    }
+  }, [open, preselectTier])
 
   // Update progress display
   const updateProgress = useCallback((downloaded: number, total: number) => {
@@ -218,7 +229,7 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
       // Step 1: Download Ollama runtime (~100MB)
       setStep(0)
       const runtimeUrl = 'https://github.com/ollama/ollama/releases/download/v0.1.26/Ollama-darwin.zip'
-      await downloadFile(runtimeUrl, 'ollama-runtime.zip', 100 * 1024 * 1024)
+      await downloadFile(runtimeUrl, 'useclevr-hybrid-runtime.zip', 100 * 1024 * 1024)
 
       if (state === 'paused') return
 
@@ -246,11 +257,8 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
           onOpenChange(false)
         }, 2000)
       } else {
-        if (data.instructions) {
-          setError(`${data.error}\n\nManual install: ${data.instructions.mac || data.instructions.linux || data.instructions.windows}`)
-        } else {
-          setError(data.error || 'Installation failed')
-        }
+        // Map internal installer details to branded message only
+        setError('Runtime required')
         setState('error')
       }
 
@@ -281,7 +289,9 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
       abortControllerRef.current.abort()
     }
     // Clear stored downloads
+    // Remove both legacy and current keys
     localStorage.removeItem('download_ollama-runtime.zip')
+    localStorage.removeItem('download_useclevr-hybrid-runtime.zip')
     localStorage.removeItem('download_llama3-8b.gguf')
     
     setState('idle')
@@ -310,12 +320,12 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
   const percentage = progress.total > 0 ? Math.round((progress.downloaded / progress.total) * 100) : 0
   const stepNames = ['AI Runtime (~100MB)', 'AI Model (~5GB)', 'Installing service']
   const stepDescriptions = [
-    'Downloading Ollama runtime',
-    'Downloading llama3 model',
+    'Preparing Local AI',
+    'Downloading AI Model',
     'Starting local AI service'
   ]
 
-  if (!open) return null
+  // Note: keep hooks above; guard render right before JSX return
 
   const handleSelectTier = (tierId: string) => {
     // Minimal change: only store selection locally and keep modal on selection screen
@@ -332,6 +342,19 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
     standard: 'llama3:8b-instruct',
   }
 
+  const getSetupCommand = (tierId: 'lite' | 'standard'): string => {
+    const model = tierToModel[tierId]
+    return `ollama pull ${model}`
+  }
+
+  const copySetupCommand = async (tierId: 'lite' | 'standard') => {
+    try {
+      await navigator.clipboard.writeText(getSetupCommand(tierId))
+      setCopiedTier(tierId)
+      setTimeout(() => setCopiedTier(null), 1500)
+    } catch {}
+  }
+
   // UseClevr-branded status mapping for UI presentation
   const getBrandedStatus = (s: ModelStatus | null): { label: string; className: string } => {
     switch (s) {
@@ -341,10 +364,12 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
         return { label: 'Runtime required', className: 'bg-neutral-500/20 text-neutral-400' }
       case 'missing_model':
         return { label: 'Ready to download', className: 'bg-amber-500/20 text-amber-400' }
+      case 'installing_runtime':
+        return { label: 'Preparing Local AI', className: 'bg-blue-500/20 text-blue-400' }
       case 'downloading':
-        return { label: 'Downloading model', className: 'bg-blue-500/20 text-blue-400' }
+        return { label: 'Downloading AI Model', className: 'bg-blue-500/20 text-blue-400' }
       case 'verifying':
-        return { label: 'Verifying local AI', className: 'bg-blue-500/20 text-blue-400' }
+        return { label: 'Verifying Local AI', className: 'bg-blue-500/20 text-blue-400' }
       case 'verified':
         return { label: 'Ready for Offline Use', className: 'bg-green-500/20 text-green-400' }
       case 'ready':
@@ -392,6 +417,7 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
     // Initialize activation from cookie for display
     try {
       setActivated((document.cookie || '').includes('useclevr_hybrid=verified'))
+      setHybridLiteEnabled(/(?:^|; )hybridAiLiteEnabled=1(?:;|$)/.test(document.cookie || ''))
     } catch {}
     if (selectedTier === 'lite' || selectedTier === 'standard') {
       checkModelStatus(selectedTier)
@@ -428,19 +454,119 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
       })
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'pull_failed' }))
-        setPullError(body.error || 'pull_failed')
+        // Special-case: runtime is missing/unreachable – map to UseClevr-branded state
+        if (res.status === 428) {
+          const body: { error?: string; status?: string } = await res.json().catch(() => ({}))
+          if (body && body.error === 'runtime_required') {
+            // Block pull and show runtime-required state with proper primary action
+            setTierStatus(prev => ({ ...prev, [selectedTier]: 'unavailable' }))
+            // Do not surface raw backend text in UI for this case
+            return
+          }
+        }
+        // Do not surface internal errors; present branded failure
+        await res.json().catch(() => ({}))
+        setPullError('Download failed')
         setTierStatus(prev => ({ ...prev, [selectedTier]: 'error' }))
         return
       }
 
       // After successful pull, re-check model presence to confirm readiness
       await checkModelStatus(selectedTier)
-    } catch (e: unknown) {
-      setPullError(e instanceof Error ? e.message : 'pull_failed')
+    } catch {
+      setPullError('Download failed')
       setTierStatus(prev => ({ ...prev, [selectedTier!]: 'error' }))
     }
   }
+
+  // Runtime download entry point (placeholder, OS-agnostic)
+  // Minimal action to guide users to install the required local runtime before model download
+  const handleDownloadRuntime = useCallback(async () => {
+    // Smallest-change OS detection and direct-download trigger
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+    const platform = typeof navigator !== 'undefined' ? (navigator.platform || '') : ''
+
+    type OS = 'windows' | 'mac' | 'linux' | 'unknown'
+    const detectOS = (): OS => {
+      const p = platform.toLowerCase()
+      const u = ua.toLowerCase()
+      if (p.includes('win') || u.includes('windows')) return 'windows'
+      if (p.includes('mac') || u.includes('mac os') || u.includes('darwin')) return 'mac'
+      if (p.includes('linux') || u.includes('linux')) return 'linux'
+      return 'unknown'
+    }
+
+    const os = detectOS()
+
+    // UseClevr-branded direct-download targets (placeholders, ready for real assets)
+    const targets: Record<Exclude<OS, 'unknown'>, string> = {
+      windows: '/api/downloads/windows',
+      mac: '/downloads/UseClevr-Hybrid-Runtime.dmg',
+      linux: '/api/downloads/linux',
+    }
+
+    const trigger = (url: string, filename?: string) => {
+      try {
+        const a = document.createElement('a')
+        a.href = url
+        if (filename) a.download = filename
+        a.rel = 'noopener'
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+      } catch {}
+    }
+
+    const exists = async (url: string): Promise<boolean> => {
+      try {
+        const res = await fetch(url, { method: 'HEAD' })
+        return res.ok
+      } catch {
+        return false
+      }
+    }
+
+    if (os === 'unknown') {
+      // Minimal chooser via native prompts to avoid UI refactor
+      if (window.confirm('Download UseClevr Hybrid AI Runtime for Windows?')) {
+        if (await exists(targets.windows)) {
+          trigger(targets.windows, 'UseClevr-Hybrid-Runtime-Setup.exe')
+        } else {
+          setPullError('Runtime installer not available yet for this platform. Please contact support or try again later')
+        }
+        return
+      }
+      if (window.confirm('Download UseClevr Hybrid AI Runtime for macOS?')) {
+        if (await exists(targets.mac)) {
+          trigger(targets.mac, 'UseClevr-Hybrid-Runtime.dmg')
+        } else {
+          setPullError('Runtime installer not available yet for this platform. Please contact support or try again later')
+        }
+        return
+      }
+      if (window.confirm('Download UseClevr Hybrid AI Runtime for Linux?')) {
+        if (await exists(targets.linux)) {
+          trigger(targets.linux, 'UseClevr-Hybrid-Runtime.AppImage')
+        } else {
+          setPullError('Runtime installer not available yet for this platform. Please contact support or try again later')
+        }
+        return
+      }
+      return
+    }
+
+    const mapName: Record<Exclude<OS, 'unknown'>, string> = {
+      windows: 'UseClevr-Hybrid-Runtime-Setup.exe',
+      mac: 'UseClevr-Hybrid-Runtime.dmg',
+      linux: 'UseClevr-Hybrid-Runtime.AppImage',
+    }
+    if (await exists(targets[os])) {
+      trigger(targets[os], mapName[os])
+    } else {
+      setPullError('Runtime installer not available yet for this platform. Please contact support or try again later')
+    }
+  }, [])
 
   // Perform a minimal verification call to the local Ollama endpoint
   const handleVerify = async () => {
@@ -470,8 +596,8 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
       })
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'test_failed' }))
-        setVerifyError(body.error || 'test_failed')
+        await res.json().catch(() => ({}))
+        setVerifyError('Verification failed')
         // Fall back to ready (model exists) but with error state per requirements
         setTierStatus(prev => ({ ...prev, [selectedTier]: 'error' }))
         return
@@ -479,8 +605,8 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
 
       // Success
       setTierStatus(prev => ({ ...prev, [selectedTier]: 'verified' }))
-    } catch (e: unknown) {
-      setVerifyError(e instanceof Error ? e.message : 'test_failed')
+    } catch {
+      setVerifyError('Verification failed')
       setTierStatus(prev => ({ ...prev, [selectedTier!]: 'error' }))
     }
   }
@@ -494,6 +620,8 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
       setActivated(true)
     } catch {}
   }
+
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -589,28 +717,51 @@ export function MegaInstallerModal({ open, onOpenChange }: MegaInstallerModalPro
                     </div>
                   )
                 })()}
-                {tierStatus[selectedTier] === 'unavailable' && (
-                  <Button disabled size="sm" className="opacity-80">
-                    Install Hybrid AI
+                {/* Standard tier: keep locked/coming soon - no actions */}
+                {selectedTier === 'standard' && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-500/20 text-neutral-400">Coming Soon</span>
+                )}
+                {/* Lite tier monetization gate */}
+                {selectedTier === 'lite' && !hybridLiteEnabled && (
+                  <Button onClick={() => { window.location.href = '/pricing' }} size="sm" className="bg-purple-600 hover:bg-purple-700">
+                    Unlock Hybrid AI Lite
                   </Button>
                 )}
-                {tierStatus[selectedTier] === 'missing_model' && (
-                  <Button onClick={handlePull} size="sm" className="bg-purple-600 hover:bg-purple-700">
-                    {selectedTier === 'lite' ? 'Download Lite Model' : 'Download Standard Model'}
-                  </Button>
+                {selectedTier === 'lite' && hybridLiteEnabled && tierStatus[selectedTier] === 'unavailable' && (
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs px-2 py-1 rounded bg-muted text-foreground/90">
+                      {getSetupCommand(selectedTier)}
+                    </code>
+                    <Button onClick={() => copySetupCommand(selectedTier)} size="sm" className="bg-purple-600 hover:bg-purple-700">
+                      {copiedTier === selectedTier ? 'Copied' : 'Copy Setup Command'}
+                    </Button>
+                  </div>
                 )}
-                {tierStatus[selectedTier] === 'downloading' && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Downloading model</span>
+                {selectedTier !== 'standard' && tierStatus[selectedTier] === 'installing_runtime' && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Preparing Local AI</span>
                 )}
-                {tierStatus[selectedTier] === 'ready' && (
+                {selectedTier === 'lite' && hybridLiteEnabled && tierStatus[selectedTier] === 'missing_model' && (
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs px-2 py-1 rounded bg-muted text-foreground/90">
+                      {getSetupCommand(selectedTier)}
+                    </code>
+                    <Button onClick={() => copySetupCommand(selectedTier)} size="sm" className="bg-purple-600 hover:bg-purple-700">
+                      {copiedTier === selectedTier ? 'Copied' : 'Copy Setup Command'}
+                    </Button>
+                  </div>
+                )}
+                {selectedTier !== 'standard' && tierStatus[selectedTier] === 'downloading' && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Downloading AI Model</span>
+                )}
+                {selectedTier !== 'standard' && tierStatus[selectedTier] === 'ready' && (
                   <Button onClick={handleVerify} size="sm" className="bg-green-600 hover:bg-green-700">
                     Verify Local AI
                   </Button>
                 )}
-                {tierStatus[selectedTier] === 'verifying' && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Verifying local AI</span>
+                {selectedTier !== 'standard' && tierStatus[selectedTier] === 'verifying' && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">Verifying Local AI</span>
                 )}
-                {tierStatus[selectedTier] === 'verified' && (
+                {selectedTier !== 'standard' && tierStatus[selectedTier] === 'verified' && (
                   <div className="flex items-center gap-2">
                     <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">Ready for Offline Use</span>
                     {!activated ? (

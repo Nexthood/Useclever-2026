@@ -15,6 +15,20 @@ interface CsvRow {
 const MAX_RETRIES = 5
 const RETRY_DELAYS = [5000, 8000, 12000, 20000, 30000] // longer delays for Neon cold start
 
+// Minimal DB availability probe to avoid broken downstream logic
+async function isDbAvailable(): Promise<boolean> {
+  try {
+    // Perform a trivial query; any driver-level failure (e.g., Neon cold start/fetch failed)
+    // will throw here and we can fail early before demo-user/database operations.
+    await db.query.datasets.findFirst()
+    return true
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error("[UPLOAD] DB health check failed:", msg)
+    return false
+  }
+}
+
 /**
  * Upload CSV file and store in database
  */
@@ -97,6 +111,16 @@ export async function uploadCSV(formData: FormData): Promise<{
     // For standard uploads (non-profitability), proceed with normal database insert
     // Even in demo mode, standard uploads should create actual dataset records
     console.log("[UPLOAD] Standard upload mode - proceeding with database insert")
+    
+    // EARLY FAIL: If DB is unavailable, return a clean structured error and stop
+    const dbOk = await isDbAvailable()
+    if (!dbOk) {
+      return {
+        success: false,
+        // Structured error: machine-readable code | user-facing message
+        error: "DB_UNAVAILABLE|Our database is waking up. Please retry in 15–60 seconds.",
+      }
+    }
     
     // Authenticated user path - use demo user as fallback for standard uploads
     let effectiveUserId = session?.user?.id

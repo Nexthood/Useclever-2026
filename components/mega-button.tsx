@@ -8,12 +8,24 @@ import { MegaInstallerModal } from "@/components/mega-installer-modal"
 export function MegaButton() {
   const [localAIAvailable, setLocalAIAvailable] = useState<boolean | null>(null)
   const [showInstaller, setShowInstaller] = useState(false)
+  const [prefillLite, setPrefillLite] = useState(false)
   
   useEffect(() => {
     fetch('/api/local-ai-status')
       .then(res => res.json())
       .then(data => setLocalAIAvailable(data.localAIAvailable))
       .catch(() => setLocalAIAvailable(false))
+  }, [])
+
+  // Open the installer and preselect Lite if redirected with hybrid=lite&setup=1
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('hybrid') === 'lite' && params.get('setup') === '1') {
+      setShowInstaller(true)
+      setPrefillLite(true)
+      // One-time hint; do not mutate history to preserve user back behavior
+    }
   }, [])
 
   if (localAIAvailable === null) {
@@ -42,6 +54,7 @@ export function MegaButton() {
       <MegaInstallerModal 
         open={showInstaller} 
         onOpenChange={setShowInstaller}
+        preselectTier={prefillLite ? 'lite' : undefined}
       />
     </>
   )

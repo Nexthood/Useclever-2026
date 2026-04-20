@@ -1,4 +1,7 @@
 import { getCheckoutSession } from "@/app/actions/stripe"
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import type Stripe from "stripe"
 import { PublicHeader } from "@/components/public-header"
 import { PublicFooter } from "@/components/public-footer"
 import { Button } from "@/components/ui/button"
@@ -18,13 +21,28 @@ export default async function CheckoutSuccessPage({
 }) {
   const { session_id } = await searchParams
 
-  let session = null
+  let session: Stripe.Checkout.Session | null = null
   if (session_id) {
     try {
       session = await getCheckoutSession(session_id)
     } catch (error) {
       console.error("Error fetching session:", error)
     }
+  }
+
+  // Minimal unlock + guidance: if this checkout was for Hybrid AI Lite,
+  // set cookie so the modal unlocks Lite and redirect to app with setup hint
+  try {
+    const isLite = Boolean(session?.metadata && session.metadata.productId === "hybrid_ai_lite")
+    if (isLite) {
+      const store = await cookies()
+      store.set("hybridAiLiteEnabled", "1", { path: "/", maxAge: 60 * 60 * 24 * 365 })
+      // Send user directly to dashboard where Hybrid AI modal lives, with hint to open Lite setup
+      // Do not auto-start any downloads or runtime; only provide UI context.
+      return redirect("/app?hybrid=lite&setup=1")
+    }
+  } catch (e) {
+    // Non-fatal if cookie cannot be set
   }
 
   return (

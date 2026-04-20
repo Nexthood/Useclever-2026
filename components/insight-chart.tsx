@@ -31,6 +31,8 @@ interface InsightChartProps {
   chartType?: 'bar' | 'line' | 'pie' | 'area' | 'auto';
   title?: string;
   height?: number;
+  // Compact, card-friendly rendering: minimal chrome, no intrusive tooltip, no rotated labels
+  compact?: boolean;
 }
 
 // Color palette
@@ -51,7 +53,8 @@ export function InsightChart({
   data, 
   chartType = 'bar',
   title,
-  height = 300 
+  height = 300,
+  compact = false,
 }: InsightChartProps) {
   if (!data || data.length === 0) {
     return (
@@ -183,6 +186,27 @@ export function InsightChart({
 
       case 'bar':
       default:
+        if (compact) {
+          // Compact, vertical layout: readable labels, no tooltip/legend, minimal chrome
+          return (
+            <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 80, bottom: 8 }}>
+              {/* No grid for minimal look */}
+              <XAxis type="number" hide />
+              <YAxis 
+                type="category" 
+                dataKey="name" 
+                width={80}
+                tick={{ fontSize: 11, fill: '#a1a1aa' }}
+              />
+              {/* Tooltip/Legend removed to avoid intrusive hover UI in one-pager */}
+              <Bar dataKey="value" radius={[4, 4, 4, 4]} barSize={18}>
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          );
+        }
         return (
           <BarChart data={data} margin={{ top: 10, right: 30, left: leftMargin, bottom: 60 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />

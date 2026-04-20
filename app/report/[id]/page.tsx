@@ -16,10 +16,28 @@ interface Message {
 
 export default async function ReportPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const sp = (await searchParams) || {};
+  const getStr = (k: string) => {
+    const v = sp[k];
+    return Array.isArray(v) ? v[0] : (v || "");
+  };
+
+  // Optional business profile fields (from one-pager manual inputs)
+  const company = getStr("company");
+  const pitch = getStr("pitch");
+  const target = getStr("target");
+  const model = getStr("model");
+  const stage = getStr("stage");
+  const contact = getStr("contact");
+  const team = getStr("team");
+  const funding = getStr("funding");
+  const logo = getStr("logo");
   const report = getReport(id);
   
   if (!report) {
@@ -31,17 +49,29 @@ export default async function ReportPage({
   
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
+      {/* Header (enriched with optional business profile) */}
       <header className="border-b bg-white dark:bg-gray-900 shrink-0">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">UseClevr Report</h1>
-              <p className="text-muted-foreground">{report.datasetName}</p>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold text-white">
+                {company || "UseClevr Report"}
+              </h1>
+              <p className="text-purple-300 truncate">
+                {company ? report.datasetName : report.datasetName}
+              </p>
+              {pitch && (
+                <p className="text-sm text-gray-300 mt-1 max-w-[70ch]">{pitch}</p>
+              )}
             </div>
-            <div className="text-right text-sm text-muted-foreground">
-              <p>Created: {new Date(report.createdAt).toLocaleDateString()}</p>
-              <p>{report.rowCount.toLocaleString()} rows • {report.columnCount} columns</p>
+            <div className="flex items-start gap-4">
+              {logo && (
+                <img src={logo} alt="logo" className="h-12 w-12 rounded bg-gray-800 object-contain p-1 border border-gray-700" />
+              )}
+              <div className="text-right text-sm text-purple-300">
+                <p>Created: {new Date(report.createdAt).toLocaleDateString()}</p>
+                <p>{report.rowCount.toLocaleString()} rows • {report.columnCount} columns</p>
+              </div>
             </div>
           </div>
         </div>
@@ -50,6 +80,52 @@ export default async function ReportPage({
       <div className="flex-1 flex">
         {/* Main Content */}
         <main className="flex-1 container mx-auto px-4 py-8 overflow-y-auto">
+          {/* Enrichment: Business Profile (optional) */}
+          <section className="mb-8">
+            <h2 className="text-xl font-semibold mb-3">Enrich report with business profile</h2>
+            <form method="GET" className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-muted p-4 rounded-lg">
+              <input type="hidden" name="id" value={id} />
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Company / Startup Name</label>
+                <input name="company" defaultValue={company} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-muted-foreground mb-1">What do you do? (short elevator pitch)</label>
+                <input name="pitch" defaultValue={pitch} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Target Customer</label>
+                <input name="target" defaultValue={target} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Business Model</label>
+                <input name="model" defaultValue={model} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Stage</label>
+                <input name="stage" defaultValue={stage} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-muted-foreground mb-1">Website / Contact</label>
+                <input name="contact" defaultValue={contact} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-muted-foreground mb-1">Team / Founder line</label>
+                <input name="team" defaultValue={team} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Funding Ask</label>
+                <input name="funding" defaultValue={funding} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Logo/Image URL</label>
+                <input name="logo" defaultValue={logo} className="w-full px-3 py-2 rounded-md border bg-background" />
+              </div>
+              <div className="md:col-span-3 flex justify-end pt-1">
+                <button type="submit" className="px-4 py-2 rounded-md bg-primary text-primary-foreground">Apply to Report</button>
+              </div>
+            </form>
+          </section>
           {/* Executive Summary */}
           <section className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Executive Summary</h2>
@@ -57,6 +133,43 @@ export default async function ReportPage({
               <p>{report.summary}</p>
             </div>
           </section>
+
+          {/* Business Profile (manual inputs) */}
+          {(company || target || model || stage || contact || team || funding) && (
+            <section className="mb-8">
+              <h2 className="text-xl font-semibold mb-4">Business Profile</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Target Customer</p>
+                  <p className="font-medium">{target || "–"}</p>
+                </div>
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Business Model</p>
+                  <p className="font-medium">{model || "–"}</p>
+                </div>
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Stage</p>
+                  <p className="font-medium">{stage || "–"}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="bg-muted p-4 rounded-lg md:col-span-2">
+                  <p className="text-sm text-muted-foreground">Team / Founders</p>
+                  <p className="font-medium">{team || "–"}</p>
+                </div>
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Website / Contact</p>
+                  <p className="font-medium break-all">{contact || "–"}</p>
+                </div>
+              </div>
+              {funding && (
+                <div className="bg-muted p-4 rounded-lg mt-4">
+                  <p className="text-sm text-muted-foreground">Funding Ask</p>
+                  <p className="font-medium">{funding}</p>
+                </div>
+              )}
+            </section>
+          )}
           
           {/* KPIs */}
           {report.kpis.length > 0 && (
