@@ -1,18 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { CreditsProvider } from "@/lib/credits-context"
-import { UpgradeModal } from "@/components/upgrade-modal"
-import AuthProvider from "@/components/providers/auth-provider"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "UseClevr - Turn data into insights",
-  description: "Upload data. Ask questions. Get answers with AI.",
-  generator: "v0.app",
+  title: "UseClevr - Test",
+  description: "Test",
 }
 
 export default function RootLayout({
@@ -21,16 +13,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <AuthProvider>
-            <CreditsProvider>
-              {children}
-              <UpgradeModal />
-            </CreditsProvider>
-          </AuthProvider>
-        </ThemeProvider>
+    <html lang="en">
+      <body>
+        {children}
       </body>
     </html>
   )
