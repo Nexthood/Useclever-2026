@@ -1,7 +1,7 @@
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background">
-      <h1 className="text-4xl font-bold text-foreground p-10">Test Page - If you see this, the page renders</h1>
+    <div style={{backgroundColor: 'red', color: 'white', padding: '50px'}}>
+      <h1>RED BACKGROUND TEST - IF YOU SEE THIS, DEPLOY WORKED</h1>
     </div>
   )
 }
