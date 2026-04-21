@@ -11,7 +11,8 @@ function createDbClient() {
   const connectionUrl = process.env.DATABASE_URL || process.env.DIRECT_URL
   
   if (!connectionUrl) {
-    throw new Error('DATABASE_URL environment variable is required')
+    console.warn('[DB] DATABASE_URL not set - database features will be unavailable')
+    return null
   }
 
   // Use Neon HTTP client for serverless/edge compatibility
@@ -53,6 +54,11 @@ function createDbClient() {
 }
 
 export const db: ReturnType<typeof createDbClient> = globalForDb.db ?? createDbClient()
+
+// Null-safe getter for use in other modules
+export function getDb() {
+  return db
+}
 
 if (process.env.NODE_ENV !== 'production') {
   globalForDb.db = db

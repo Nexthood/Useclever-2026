@@ -1,6 +1,6 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { db } from "@/lib/db"
+import { db, getDb } from "@/lib/db"
 import { users } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import bcrypt from "bcryptjs"
@@ -8,7 +8,17 @@ import { z } from "zod"
 
 // DIAGNOSTIC: Log when auth module is loaded
 console.log('[Auth] Module loading - initializing NextAuth v5')
-console.log('[Auth] Drizzle client available:', !!db)
+console.log('[Auth] Drizzle client available:', !!getDb())
+
+// Helper to get db with null safety
+const getDbClient = () => {
+  const client = getDb()
+  if (!client) {
+    console.warn('[Auth] Database client is null - using demo mode only')
+    return null
+  }
+  return client
+}
 
 // Demo user - no database required
 const DEMO_USER = {
