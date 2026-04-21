@@ -20,7 +20,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "script-src 'self' 'unsafe-inline' cdn.usefathom.com cdn.prod.website-files.com https://static.cloudflareinsights.com; connect-src 'self' cdn.usefathom.com https://static.cloudflareinsights.com; frame-src 'self' https://js.stripe.com",
+            value: "script-src 'self' 'unsafe-inline' cdn.usefathom.com cdn.prod.website-files.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' cdn.usefathom.com https://static.cloudflareinsights.com; frame-src 'self' https://js.stripe.com",
           },
         ],
       },
