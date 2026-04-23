@@ -42,6 +42,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/package.json ./
 
+# Remove embedded .env with localhost URLs (must use Railway env vars)
+RUN rm -f .env
+
 # Set hostname for standalone server
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
