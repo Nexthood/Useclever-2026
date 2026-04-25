@@ -2,6 +2,9 @@ import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { Linkedin, Twitter, Youtube } from "lucide-react"
 
+// Static year to prevent hydration mismatch from new Date().getFullYear()
+const CURRENT_YEAR = 2026
+
 export function PublicFooter() {
   return (
     <footer className="border-t border-border/40 bg-background">
@@ -114,7 +117,7 @@ export function PublicFooter() {
           </div>
         </div>
         <div className="mt-12 pt-8 border-t border-border/40 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} UseClevr. All rights reserved.
+          © {CURRENT_YEAR} UseClevr. All rights reserved.
         </div>
       </div>
     </footer>
